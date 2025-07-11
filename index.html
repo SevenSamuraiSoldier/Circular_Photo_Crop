@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<meta name="robots" content="noindex">
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Circular Photo Crop</title>
+  <style>
+    :root {
+      --background-color: #333;
+      --text-color: #b6b6b6;
+      --slider-color: #666;
+      --slider-thumb-color: #b6b6b6;
+      --button-color: #393a3a;
+      --button-text-color: #b6b6b6;
+      --button-hover-color: #5b5b5b;
+      --border-props: 0.1em solid #32ac71;
+      --border-radius: 0.5em;
+      --border-width: 0.1em;
+      --border-type: solid;
+      --border-color: #32ac71;
+      --padding-general: 0.5em;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background-color: var(--background-color); /* #3e3e3e; */
+      color: var(--text-color);
+    }
+
+    #canvas-container {
+      position: relative;
+      margin: 2em;
+    }
+
+    canvas {
+      /* border: 1px solid #ccc; */
+      border: var(--border-props);
+      border-radius: var(--border-radius);
+    }
+
+    #crop-guide {
+      display: none;
+      position: absolute;
+      border: 2px dashed red;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .slider-container {
+      margin: 10px 0;
+    }
+
+    .slider-container label {
+      display: block;
+      /* margin-bottom: 5px; */
+    }
+
+    input[type="file"] {
+      margin: 20px 0;
+      color: transparent;
+      padding: 1em;
+      width: 6em; 
+      margin-inline: 1em;
+    }
+    input[type="range"] {
+      width: 25vw;
+      min-width: 15em;
+    }
+    input[type="file"]::file-selector-button {
+      background-color: var(--button-color); /*#444; */
+      color: var(--button-text-color); /*#b1b1b1; */
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    /* input[type="file"]::file-selector-button:hover {
+      background-color: #5b5b5b;
+      font-weight: 700;
+      transform: scale(1.1);
+    }  */
+    input{
+      background-color: var(--button-color);
+      color: var(--button-text-color);
+      border: var(--border-props);
+      border-radius: var(--border-radius);
+      transition: all 0.3s ease-out;
+    }
+    #file-input:hover,#file-input:active,#file-input:focus {
+      /* background-color: var(--button-hover-color); */
+      font-weight: 700;
+      transform: scale(1.1);
+    }
+
+    button {
+      /* margin-top: 20px; */
+      padding: 1em;
+      margin-inline: 1em;
+      /* font-size: 16px; */
+      cursor: pointer;
+      background-color: var(--button-color);
+      color: var(--button-text-color);
+      border: var(--border-props);
+      border-radius: var(--border-radius);
+      transition: all 0.3s ease-out;
+
+    }
+    button:hover,button:active,button:focus {
+      /* font-weight: 700; */
+      transform: scale(1.1);
+    }
+    
+    .master-div {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .master-slider-panel {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+    #canvas-size-button {
+      position: fixed;
+      top:1em;
+      right:1em;
+      margin: 0;
+      padding:0;
+      border: none;
+      background-color: var(--background-color);
+    }
+    #options-div {
+      display: none;
+      position: fixed;
+      top: 0;
+      left:0;
+      width:100%;
+      height: 100%;
+      background-color: var(--background-color);
+    }
+    #sizeFactor {
+      width: 85vw;
+    }
+    #size-factor-div {
+      margin-top: 10em;
+
+    }
+    #size-factor-div label {
+      margin-bottom: 1em;
+    }
+/*----  Media Query for CSS Properties for Portrait Mode ------*/
+    @media (max-aspect-ratio: 1/1) {
+      h1 {
+        font-size: 1em;
+        margin-top: 1em;
+        margin-bottom: 1em;
+      }
+      #file-input {
+        margin-block: 0;
+        /* margin-inline: 0; */
+      }
+      .slider-container {
+        margin: 0;
+        margin-bottom: 0.5em;
+        margin-top: 0.5em;
+      }
+      #canvas-container {
+        width:90vw;
+        margin-bottom: 0.5em;
+        margin-top: 1em;
+        
+      }
+      input[type="range"] {
+        width: 75vw;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Circular Photo Crop</h1>
+  <input type="file" id="file-input" accept="image/*">
+  <button id="download-btn">
+    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>
+  </button>
+<!-------------------------------------------------------------------------->
+  <div class="master-div">
+      <div id="canvas-container">
+          <canvas id="photo-canvas"></canvas>
+          <div id="crop-guide"></div>
+      </div>
+      <div class="master-slider-panel">
+          <div class="slider-container">
+                <label for="center-x">Center X:</label>
+                <input type="range" id="center-x" min="0" max="100" value="50">
+          </div>
+          <div class="slider-container">
+                <label for="center-y">Center Y:</label>
+                <input type="range" id="center-y" min="0" max="100" value="50">
+          </div>
+          <div class="slider-container">
+                <label for="radius">Radius:</label>
+                <input type="range" id="radius" min="10" max="50" value="50">
+          </div>
+          
+      </div>
+    
+  </div>
+<!-------------------------------------------------------------------------->
+
+  <div class="options-div" id="options-div">
+    <div class="slider-container" id="size-factor-div">
+      <label for="sizeFactor" >Size Factor</label>
+      <label for="sizeFactor" id="label-size-factor">0.5</label>
+      <input type="range" id="sizeFactor" min="0.1" max="1.0" value="0.5" step="0.05">
+    </div>
+  </div>
+    <!-------------------------------------------------------------------------->
+    <button id="canvas-size-button" onclick="optionMenu()">
+      <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"/></svg>
+    </button>
+  
+
+
+  <script>
+    const fileInput = document.getElementById('file-input');
+    const canvas = document.getElementById('photo-canvas');
+    const ctx = canvas.getContext('2d');
+    const cropGuide = document.getElementById('crop-guide');
+    const centerXSlider = document.getElementById('center-x');
+    const centerYSlider = document.getElementById('center-y');
+    const radiusSlider = document.getElementById('radius');
+    const downloadBtn = document.getElementById('download-btn');
+    const optionsPanel = document.getElementById('options-div');
+    var sizeFactorSlider = document.getElementById("sizeFactor");
+    const labelSizeFactor = document.getElementById("label-size-factor");
+    
+
+    let image = new Image();
+    let imageLoaded = false;
+    var sizeFactor = sizeFactorSlider.value;
+    console.log(sizeFactorSlider.value);
+    var desktopMaxSize = 500;
+    var mobileMaxSize = window.innerHeight * sizeFactor;
+    console.log("inner Height: " + window.innerHeight);
+    console.log("mobileMaxSize is: "+mobileMaxSize);
+    var maxSize = desktopMaxSize;
+    //console.log(window.innerWidth);
+    let isOptionsPanelOpen = false;
+//-------------------------------------------------------------------------------------
+  sizeFactorSlider.addEventListener("input", function() {
+    // This function will be executed whenever the slider's value changes
+    //console.log("Slider value changed to: " + this.value);
+    sizeFactor = this.value;
+    console.log("factor changed to: " + sizeFactor);
+    mobileMaxSize = window.innerHeight * sizeFactor;
+    console.log("mobileMaxSize changed to: "+mobileMaxSize);
+    
+    // You can also update other elements based on the slider's value
+    labelSizeFactor.innerHTML = this.value;
+    maxSize = mobileMaxSize;
+    console.log("MaxSize changed to: " + maxSize);
+  });
+//-------------------------------------------------------------------------------------
+
+    function checkAspectRatio() {
+        // Get the viewport width and height
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Calculate the aspect ratio
+        const aspectRatio = width / height;
+
+        // Check the aspect ratio and apply styles
+        if (aspectRatio <= 1) {
+
+          elementResizeOnPortraitAR();
+          //console.log("AR is Portrait...");
+        } 
+        else {
+          // Apply styles for landscape mode
+
+          elementResizeOnLandscapeAR();
+          //console.log("AR is Landscape...");
+        }
+      }
+// Call the checkAspectRatio function when the page loads -----------------------------
+    window.addEventListener('load', checkAspectRatio);
+//-------------------------------------------------------------------------------------
+    // Define the media query
+    const mediaQuery = window.matchMedia('(max-aspect-ratio: 1/1)');
+  
+    // Add an event listener to the media query
+    mediaQuery.addEventListener('change', function(event) {
+      if (event.matches) {
+
+        elementResizeOnPortraitAR();
+
+      }
+      else {
+        elementResizeOnLandscapeAR();
+      }
+    });
+
+    function elementResizeOnPortraitAR(){
+      maxSize = mobileMaxSize;
+    }
+
+    function elementResizeOnLandscapeAR() {
+      maxSize = desktopMaxSize;
+    }
+
+
+//-------------------------------------------------------------------------------------
+
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          image.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    image.onload = () => {
+      imageLoaded = true;
+
+      // Determine if image is portrait or landscape
+      let width, height,maxSizeFinal;
+      maxSizeFinal = maxSize;
+      if (image.width > image.height) { // Landscape
+        width = maxSizeFinal;
+        height = (image.height / image.width) * width;
+      } else { // Portrait
+        height = maxSizeFinal;
+        width = (image.width / image.height) * height;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      cropGuide.style.width = `${radiusSlider.value * 2}%`;
+      cropGuide.style.height = `${radiusSlider.value * 2}%`;
+      updateCanvas();
+    };
+
+    function updateCanvas() {
+      if (!imageLoaded) return;
+
+      // Draw the image
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      // Get crop parameters
+      const centerX = (centerXSlider.value / 100) * canvas.width;
+      const centerY = (centerYSlider.value / 100) * canvas.height;
+      const radius = (radiusSlider.value / 100) * Math.min(canvas.width, canvas.height);
+
+      // Draw the circular crop mask
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Update crop guide position
+      cropGuide.style.left = `${centerX - radius}px`;
+      cropGuide.style.top = `${centerY - radius}px`;
+      cropGuide.style.width = `${radius * 2}px`;
+      cropGuide.style.height = `${radius * 2}px`;
+    }
+
+    centerXSlider.addEventListener('input', updateCanvas);
+    centerYSlider.addEventListener('input', updateCanvas);
+    radiusSlider.addEventListener('input', updateCanvas);
+
+    downloadBtn.addEventListener('click', () => {
+      if (!imageLoaded) return;
+
+      // Get crop parameters
+      const centerX = (centerXSlider.value / 100) * canvas.width;
+      const centerY = (centerYSlider.value / 100) * canvas.height;
+      const radius = (radiusSlider.value / 100) * Math.min(canvas.width, canvas.height);
+
+      // Create a new canvas with the size of the circle at original resolution
+      const downloadCanvas = document.createElement('canvas');
+      downloadCanvas.width = radius * 2 * (image.width / canvas.width); // Scale up to original resolution
+      downloadCanvas.height = radius * 2 * (image.height / canvas.height); // Scale up to original resolution
+      const downloadCtx = downloadCanvas.getContext('2d');
+
+      // Draw the image, shifted so that the circle is centered at original resolution
+      downloadCtx.save();
+      downloadCtx.beginPath();
+      downloadCtx.arc(downloadCanvas.width / 2, downloadCanvas.height / 2, downloadCanvas.width / 2, 0, Math.PI * 2);
+      downloadCtx.closePath();
+      downloadCtx.clip();
+
+      downloadCtx.drawImage(
+        image,
+        (centerX - radius) * (image.width / canvas.width), // Source X
+        (centerY - radius) * (image.height / canvas.height), // Source Y
+        downloadCanvas.width, // Source Width
+        downloadCanvas.height, // Source Height
+        0, // Destination X
+        0, // Destination Y
+        downloadCanvas.width, // Destination Width
+        downloadCanvas.height // Destination Height
+      );
+      downloadCtx.restore();
+
+      // Download the image
+      const link = document.createElement('a');
+      link.download = 'cropped-image.png';
+      link.href = downloadCanvas.toDataURL('image/png');
+      link.click();
+    });
+    
+    function optionMenu(){
+      if (isOptionsPanelOpen){
+        optionsPanel.style.display = "none";
+        isOptionsPanelOpen = false;
+
+      }else {
+        optionsPanel.style.display = "block";
+        isOptionsPanelOpen = true;
+
+      }
+
+    }
+  </script>
+</body>
+</html>
